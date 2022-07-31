@@ -31,12 +31,12 @@ namespace JGP.Security
         string Hash(string password);
 
         /// <summary>
-        ///     Verifies a password against a hash.
+        ///     Verifies the specified password against the provided hash.
         /// </summary>
         /// <param name="password">The password.</param>
         /// <param name="hashedPassword">The hashed password.</param>
-        /// <returns><c>true</c> if [Match], <c>false</c> otherwise.</returns>
-        bool Verify(string password, string hashedPassword);
+        /// <returns><see cref="VerificationResult"/>.</returns>
+        VerificationResult Verify(string password, string hashedPassword);
     }
 
     /// <summary>
@@ -70,37 +70,44 @@ namespace JGP.Security
         ///     Creates a hash from a password with 10000 iterations
         /// </summary>
         /// <param name="password">The password.</param>
-        /// <returns>System.String.</returns>
+        /// <returns><see cref="System.String"/>.</returns>
         public string Hash(string password)
         {
             return Hash(password, 10000);
         }
 
         /// <summary>
-        ///     Verifies a password against a hash.
+        ///     Verifies the specified password against the provided hash.
         /// </summary>
         /// <param name="password">The password.</param>
         /// <param name="hashedPassword">The hashed password.</param>
-        /// <returns><c>true</c> if [Match], <c>false</c> otherwise.</returns>
-        public bool Verify(string password, string hashedPassword)
+        /// <returns><see cref="VerificationResult"/>.</returns>
+        public VerificationResult Verify(string password, string hashedPassword)
         {
-            var hashBytes = Convert.FromBase64String(hashedPassword);
-
-            var salt = new byte[SaltSize];
-            Array.Copy(hashBytes, 0, salt, 0, SaltSize);
-
-            var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 10000);
-            var hash = pbkdf2.GetBytes(HashSize);
-
-            for (var i = 0; i < HashSize; i++)
+            try
             {
-                if (hashBytes[i + SaltSize] != hash[i])
-                {
-                    return false;
-                }
-            }
+                var hashBytes = Convert.FromBase64String(hashedPassword);
 
-            return true;
+                var salt = new byte[SaltSize];
+                Array.Copy(hashBytes, 0, salt, 0, SaltSize);
+
+                var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 10000);
+                var hash = pbkdf2.GetBytes(HashSize);
+
+                for (var i = 0; i < HashSize; i++)
+                {
+                    if (hashBytes[i + SaltSize] != hash[i])
+                    {
+                        return VerificationResult.GetFailureResult("Password does not match");
+                    }
+                }
+
+                return VerificationResult.GetSuccessResult();
+            }
+            catch (Exception e)
+            {
+                return VerificationResult.GetFailureResult(e.Message);
+            }
         }
 
         #region HELPERS
@@ -110,7 +117,7 @@ namespace JGP.Security
         /// </summary>
         /// <param name="password">The password.</param>
         /// <param name="iterations">The iterations.</param>
-        /// <returns>System.String.</returns>
+        /// <returns><see cref="System.String"/>.</returns>
         private static string Hash(string password, int iterations)
         {
             byte[] salt;
